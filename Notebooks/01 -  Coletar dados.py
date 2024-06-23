@@ -1,6 +1,13 @@
 # Databricks notebook source
 import requests 
 from pyspark.sql import functions as F
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
+
+# COMMAND ----------
+
+dbutils.widgets.text("data_execucao","")
+data_execucao = dbutils.widgets.get("data_execucao")
 
 # COMMAND ----------
 
@@ -39,4 +46,47 @@ def dados_para_dataframe (dado_json):
 
 # COMMAND ----------
 
-salvar_arqivo(extraindo_dados("2024-06-18"))
+def conferir_dados(ano,mes):
+    path = f"dbfs:/databricks-results/bronze/ano={ano}/mes={mes}/"
+    try:
+        df = spark.read.parquet(path)
+        lista = []
+        lista = [str(i['data']) for i in df.select('data').dropDuplicates().collect()]   
+        return lista
+    except:
+        return None
+
+# COMMAND ----------
+
+def datas(data_execucao):
+    formato = "%Y-%m-%d"
+    # Convierte la cadena a un objeto datetime
+    data = datetime.strptime(data_execucao, formato)
+    periodo = []
+    list_mes = [] 
+    for i in range(3):
+        ano,mes,dia = str(data - relativedelta(months=i)).split("-")
+        datas = conferir_dados(ano,mes)
+        dia_periodo = datetime.strptime(f'{ano}-{mes}-01', formato)
+        
+        while mes == str(dia_periodo)[5:7]:
+            dia_periodo = dia_periodo + timedelta(days=1)
+            salvar_arqivo(extraindo_dados(str(dia_periodo)[:10]))
+            
+
+
+# COMMAND ----------
+
+datas(data_execucao)
+
+# COMMAND ----------
+
+#dbutils.fs.rm("dbfs:/databricks-results/",True)
+
+# COMMAND ----------
+
+#display(dbutils.fs.ls("dbfs:/databricks-results/bronze/"))
+
+# COMMAND ----------
+
+
